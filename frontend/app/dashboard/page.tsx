@@ -84,7 +84,7 @@ readinessProbe:
 
         <button
           onClick={() => setDark(!dark)}
-          className="w-14 h-8 flex items-center rounded-full p-1 transition-all duration-500"
+          className="w-14 h-8 flex items-center rounded-full p-1 transition-all duration-500 cursor-pointer"
           style={{ backgroundColor: dark ? "#4b5563" : "#d1d5db" }}
         >
           <div
