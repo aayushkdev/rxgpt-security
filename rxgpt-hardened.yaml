@@ -1,0 +1,9 @@
+securityContext:
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
