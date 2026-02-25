@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rxgpt-security-scan
+  labels:
+    app: rxgpt-scanner
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: rxgpt-scanner
+    spec:
+      restartPolicy: Never
+
+      securityContext:
+        runAsNonRoot: true
+
+      containers:
+        - name: rxgpt-scan
+          image: rxgpthealth:mvp
+          command: ["python", "rxgpt-scan.py", "rxgpthealth:mvp"]
+
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
