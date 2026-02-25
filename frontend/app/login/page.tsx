@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import { loadSlim } from "@tsparticles/slim";
+import { roles } from "../lib/themeconfig";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faHospital,
@@ -13,6 +14,37 @@ import {
   faEnvelope,
   faLock,
 } from "@fortawesome/free-solid-svg-icons";
+import { useRouter } from "next/dist/client/components/navigation";
+
+// separate component for particles; memoized so it only updates when accent changes
+const ParticleBackground = React.memo(
+  ({ accent, init }: { accent: string; init: boolean }) => {
+    const options = useMemo(() => {
+      return {
+        background: { color: "transparent" },
+        fullScreen: { enable: false },
+        particles: {
+          number: { value: 60 },
+          color: { value: accent },
+          links: {
+            enable: true,
+            color: accent,
+            distance: 140,
+            opacity: 0.25,
+          },
+          move: { enable: true, speed: 0.8 },
+          size: { value: { min: 1, max: 3 } },
+          opacity: { value: 0.4 },
+        },
+        detectRetina: true,
+      };
+    }, [accent]);
+
+    if (!init) return null;
+    return <Particles id="tsparticles" options={options} className="absolute inset-0" />;
+  }
+);
+
 
 export default function Login() {
   const [dark, setDark] = useState(true);
@@ -20,8 +52,52 @@ export default function Login() {
   const [mounted, setMounted] = useState(false);
   const [roleAnimating, setRoleAnimating] = useState(false);
   const [role, setRole] = useState("Admin");
+  const [securityMessage, setSecurityMessage] = useState("");
+  const [show2FA, setShow2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [generatedCode, setGeneratedCode] = useState("");
+
+  // controlled inputs for validation
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => setMounted(true), []);
+  const router = useRouter();
+
+  const handleLogin = () => {
+    const emailInput = email.trim();
+    const passwordInput = password;
+
+    // length validation
+    if (emailInput.length < 5) {
+      setSecurityMessage("Email must be at least 5 characters long");
+      return;
+    }
+    if (passwordInput.length < 8) {
+      setSecurityMessage("Password must be at least 8 characters long");
+      return;
+    }
+
+    // XSS Detection
+    if (/<script.*?>.*?<\/script>/i.test(emailInput) || /<script.*?>.*?<\/script>/i.test(passwordInput)) {
+      setSecurityMessage("BLOCKED: XSS");
+      return;
+    }
+
+    // SQL Injection Detection
+    if (/'\s*OR\s*1=1--/i.test(emailInput) || /'\s*OR\s*1=1--/i.test(passwordInput)) {
+      setSecurityMessage("BLOCKED: SQLi");
+      return;
+    }
+
+    // Clear alerts
+    setSecurityMessage("");
+
+    // Generate fake 2FA code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+    setShow2FA(true);
+  };
 
   useEffect(() => {
     initParticlesEngine(async (engine) => {
@@ -29,124 +105,8 @@ export default function Login() {
     }).then(() => setInit(true));
   }, []);
 
-  /* ---------------------------------- */
-  /* ROLE CONFIG (converted for animation) */
-  /* ---------------------------------- */
-
+  
   const roleConfig = useMemo(() => {
-    const roles = {
-      Admin: {
-        light: {
-          leftFrom: "#eff1f5",
-          leftTo: "#ccd0da",
-          rightFrom: "#f2f3f7",
-          rightTo: "#e6e9ef",
-          accent: "#7287fd",
-          textPrimary: "#2e3440",
-          textSecondary: "#4c566a",
-        },
-        dark: {
-          leftFrom: "#1e1e2e",
-          leftTo: "#181825",
-          rightFrom: "#181825",
-          rightTo: "#11111b",
-          accent: "#89b4fa",
-          textPrimary: "#e2e8f0",
-          textSecondary: "#a6adc8",
-        },
-        title: "Administration Portal",
-        sub: "System oversight and operational control.",
-      },
-      Doctor: {
-        light: {
-          leftFrom: "#f3ead3",
-          leftTo: "#e6e2cc",
-          rightFrom: "#f8f5e4",
-          rightTo: "#e6dcc6",
-          accent: "#7fbbb3",
-          textPrimary: "#2f3e46",
-          textSecondary: "#556b6e",
-        },
-        dark: {
-          leftFrom: "#2d353b",
-          leftTo: "#232a2e",
-          rightFrom: "#232a2e",
-          rightTo: "#1f2428",
-          accent: "#83c092",
-          textPrimary: "#d3c6aa",
-          textSecondary: "#a7c080",
-        },
-        title: "Doctor Workspace",
-        sub: "Clinical access and patient records.",
-      },
-      Nurse: {
-        light: {
-          leftFrom: "#fbf1c7",
-          leftTo: "#ebdbb2",
-          rightFrom: "#f2e5bc",
-          rightTo: "#e0d2a8",
-          accent: "#b16286",
-          textPrimary: "#3c3836",
-          textSecondary: "#665c54",
-        },
-        dark: {
-          leftFrom: "#282828",
-          leftTo: "#1d2021",
-          rightFrom: "#1d2021",
-          rightTo: "#141617",
-          accent: "#d3869b",
-          textPrimary: "#ebdbb2",
-          textSecondary: "#bdae93",
-        },
-        title: "Nursing Station",
-        sub: "Care coordination and monitoring.",
-      },
-      Patient: {
-        light: {
-          leftFrom: "#faf4ed",
-          leftTo: "#f2e9e1",
-          rightFrom: "#f4ede8",
-          rightTo: "#e8dcd3",
-          accent: "#907aa9",
-          textPrimary: "#403d52",
-          textSecondary: "#6e6a86",
-        },
-        dark: {
-          leftFrom: "#191724",
-          leftTo: "#1f1d2e",
-          rightFrom: "#1f1d2e",
-          rightTo: "#16141f",
-          accent: "#c4a7e7",
-          textPrimary: "#e0def4",
-          textSecondary: "#908caa",
-        },
-        title: "Patient Access",
-        sub: "Appointments and health history.",
-      },
-      Staff: {
-        light: {
-          leftFrom: "#e1e2e7",
-          leftTo: "#d5d6db",
-          rightFrom: "#e5e6ea",
-          rightTo: "#d8d9df",
-          accent: "#7aa2f7",
-          textPrimary: "#1f2937",
-          textSecondary: "#4b5563",
-        },
-        dark: {
-          leftFrom: "#1a1b26",
-          leftTo: "#16161e",
-          rightFrom: "#16161e",
-          rightTo: "#0f0f17",
-          accent: "#7aa2f7",
-          textPrimary: "#c0caf5",
-          textSecondary: "#9aa5ce",
-        },
-        title: "Staff Operations",
-        sub: "Logistics and internal coordination.",
-      },
-    };
-
     return roles[role as keyof typeof roles];
   }, [role]);
 
@@ -164,26 +124,9 @@ export default function Login() {
   /* PARTICLES */
   /* ---------------------------------- */
 
-  const options = useMemo(() => {
-    return {
-      background: { color: "transparent" },
-      fullScreen: { enable: false },
-      particles: {
-        number: { value: 60 },
-        color: { value: current.accent },
-        links: {
-          enable: true,
-          color: current.accent,
-          distance: 140,
-          opacity: 0.25,
-        },
-        move: { enable: true, speed: 0.8 },
-        size: { value: { min: 1, max: 3 } },
-        opacity: { value: 0.4 },
-      },
-      detectRetina: true,
-    };
-  }, [current.accent]);
+  // memoized options are moved into a separate component below to avoid recreating the
+  // configuration every time the Login component rerenders (e.g. when typing).  Email and
+  // password state changes should not trigger a particle update.
 
   /* ---------------------------------- */
   /* RENDER */
@@ -263,13 +206,8 @@ export default function Login() {
             backgroundImage: `linear-gradient(to bottom right, ${current.rightFrom}, ${current.rightTo})`,
           }}
         >
-          {init && (
-            <Particles
-              id="tsparticles"
-              options={options}
-              className="absolute inset-0"
-            />
-          )}
+          {/* particle background separated into its own memoized component */}
+          <ParticleBackground accent={current.accent} init={init} />
 
           <div
             className={`relative z-10 w-full max-w-md px-10 transition-all duration-500 ${
@@ -336,6 +274,10 @@ export default function Login() {
                 placeholder="you@example.com"
                 className="w-full bg-transparent focus:outline-none transition-colors duration-500"
                 style={{ color: current.textPrimary }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                minLength={5}
+                required
               />
             </div>
 
@@ -354,18 +296,105 @@ export default function Login() {
                 placeholder="Enter your password"
                 className="w-full bg-transparent focus:outline-none transition-colors duration-500"
                 style={{ color: current.textPrimary }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                required
               />
             </div>
 
             <button
+              onClick={handleLogin}
               className="w-full py-3 rounded-lg text-white font-medium transition-all duration-300 cursor-pointer"
               style={{ backgroundColor: current.accent }}
             >
               Login
             </button>
+
+            {securityMessage && (
+              <div className="mt-4 text-center font-medium text-red-500 animate-pulse">
+                {securityMessage}
+              </div>
+            )}
           </div>
         </div>
+
+        
       </div>
+
+    {show2FA && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
+        <div
+          className="p-8 rounded-2xl shadow-2xl w-96 text-center transition-all duration-500 scale-100"
+          style={{
+            backgroundImage: `linear-gradient(to bottom right, ${current.rightFrom}, ${current.rightTo})`,
+          }}
+        >
+          <h3
+            className="text-xl font-semibold mb-3 transition-colors duration-500"
+            style={{ color: current.textPrimary }}
+          >
+            Two-Factor Authentication
+          </h3>
+
+          <p
+            className="mb-4 text-sm transition-colors duration-500"
+            style={{ color: current.textSecondary }}
+          >
+            Enter the verification code sent to your device
+          </p>
+
+          {/* Demo Code */}
+          <p
+            className="mb-4 text-xs transition-colors duration-500"
+            style={{ color: current.textSecondary }}
+          >
+            Demo Code:{" "}
+            <span
+              className="font-mono"
+              style={{ color: current.accent }}
+            >
+              {generatedCode}
+            </span>
+          </p>
+
+          <input
+            type="text"
+            value={twoFactorCode}
+            onChange={(e) => setTwoFactorCode(e.target.value)}
+            placeholder="Enter 6-digit code"
+            className="w-full rounded-lg px-4 py-2 mb-4 text-center bg-transparent border focus:outline-none transition-colors duration-500 "
+            style={{
+              color: current.textPrimary,
+              borderColor: current.textSecondary,
+            }}
+          />
+
+          <button
+            onClick={() => {
+              if (twoFactorCode === generatedCode) {
+                setShow2FA(false);
+                router.push("/dashboard");
+              } else {
+                alert("Invalid Code");
+              }
+            }}
+            className="w-full py-2 rounded-lg text-white transition-all duration-300 cursor-pointer"
+            style={{ backgroundColor: current.accent }}
+          >
+            Verify
+          </button>
+
+          <button
+            onClick={() => setShow2FA(false)}
+            className="mt-3 text-sm transition-colors duration-500 cursor-pointer"
+            style={{ color: current.textSecondary }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
