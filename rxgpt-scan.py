@@ -8,15 +8,12 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.align import Align
 from rich.text import Text
+from rich.rule import Rule
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
 console = Console()
 
-
-# -------------------------------
-# Vulnerability Checks
-# -------------------------------
 
 def check_cryptography_version(image):
     try:
@@ -166,7 +163,9 @@ def main():
     content = Group(
         meta,
         Text(""),
+        Rule(style="dim"),
         table,
+        Rule(style="dim"),
         Text(""),
         score_text,
         summary,
@@ -180,8 +179,9 @@ def main():
         title_align="center",
         border_style="bright_cyan",
         box=box.ROUNDED,
-        padding=(1, 4),
+        padding=(1, 6),
         expand=False,
+        width=120,
     )
 
     console.print()
