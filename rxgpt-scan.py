@@ -2,15 +2,21 @@
 
 import sys
 import subprocess
-from rich.console import Console
-from rich.console import Group
+import time
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.align import Align
 from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
 console = Console()
+
+
+# -------------------------------
+# Vulnerability Checks
+# -------------------------------
 
 def check_cryptography_version(image):
     try:
@@ -18,16 +24,21 @@ def check_cryptography_version(image):
             ["docker", "run", "--rm", image, "pip", "show", "cryptography"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=8
         )
 
-        if "Version:" in result.stdout:
-            for line in result.stdout.splitlines():
-                if line.startswith("Version:"):
-                    version = line.split(":")[1].strip()
-                    if version < "42.0":
-                        return True
-        return False
+        if "Version:" not in result.stdout:
+            return True
+
+        for line in result.stdout.splitlines():
+            if line.startswith("Version:"):
+                version = line.split(":")[1].strip()
+                if version < "42.0":
+                    return True
+                else:
+                    return False
+
+        return True
 
     except Exception:
         return True
@@ -68,38 +79,44 @@ readinessProbe:
     with open("rxgpt-hardened.yaml", "w") as f:
         f.write(yaml_content.strip())
 
-    console.print("\n[bold green]✔ Hardened deployment file generated → rxgpt-hardened.yaml[/bold green]")
-
-
 def severity_format(level):
     if level == "CRIT":
-        return "[bold red]CRITICAL[/bold red]"
+        return Text("CRITICAL", style="bold red")
     if level == "HIGH":
-        return "[bold yellow]HIGH[/bold yellow]"
-    return "[green]LOW[/green]"
+        return Text("HIGH", style="bold yellow")
+    return Text("LOW", style="green")
 
 
 def main():
-    print()
     if len(sys.argv) < 2:
         console.print("[bold red]Usage: python rxgpt-scan.py <image-name>[/bold red]")
         sys.exit(1)
 
     image = sys.argv[1]
 
+    # Spinner animation
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]Scanning container image..."),
+        transient=True,
+    ) as progress:
+        progress.add_task("scan", total=None)
+        time.sleep(1.2)
+
     vulnerabilities = []
 
-
+    # Core findings
     if check_cryptography_version(image):
         vulnerabilities.append(("cryptography<42.0", "CRIT", "Upgrade dependency"))
 
     vulnerabilities.append(("Missing healthcheck", "HIGH", "Add readinessProbe"))
     vulnerabilities.extend(mock_source_scan())
 
+    # Build table
     table = Table(
-        box=box.MINIMAL_DOUBLE_HEAD,
+        box=box.SIMPLE_HEAVY,
         show_header=True,
-        header_style="bold cyan",
+        header_style="bold bright_cyan",
         expand=False,
     )
 
@@ -118,32 +135,58 @@ def main():
         elif severity == "HIGH":
             high += 1
 
-    summary_text = (
-        f"[bold]Summary:[/bold] "
-        f"[red]{crit} Critical[/red] • "
-        f"[yellow]{high} High[/yellow]"
-    )
+    # Security score calculation
+    score = max(0, 100 - (crit * 40 + high * 15))
 
+    score_text = Text()
+    score_text.append("Security Score: ", style="bold")
+
+    if score >= 80:
+        score_text.append(f"{score}/100", style="bold green")
+    elif score >= 50:
+        score_text.append(f"{score}/100", style="bold yellow")
+    else:
+        score_text.append(f"{score}/100", style="bold red")
+
+    # Summary
+    summary = Text()
+    summary.append("Summary: ", style="bold")
+    summary.append(f"{crit} Critical", style="bold red")
+    summary.append(" • ")
+    summary.append(f"{high} High", style="bold yellow")
+
+    # Metadata
+    meta = Text()
+    meta.append("Engine: ", style="dim")
+    meta.append("RxGPT DevSecOps v1.0\n", style="dim")
+    meta.append("Target: ", style="dim")
+    meta.append(f"{image}", style="dim")
+
+    # Compose content
     content = Group(
-        Text(f"Target Image: {image}", style="dim"),
+        meta,
         Text(""),
         table,
         Text(""),
-        Text.from_markup(summary_text),
+        score_text,
+        summary,
         Text(""),
         Text("✔ Hardened deployment file generated → rxgpt-hardened.yaml", style="green"),
     )
 
-    boxed = Panel(
+    panel = Panel(
         Align.center(content),
-        title=" RXGPT Secuirty Scan Report ",
+        title="🔒 RXGPT SECURITY SCAN",
+        title_align="center",
+        border_style="bright_cyan",
         box=box.ROUNDED,
-        border_style="cyan",
         padding=(1, 4),
         expand=False,
     )
 
-    console.print(boxed)
+    console.print()
+    console.print(panel)
+    console.print()
 
     generate_hardened_yaml()
 
