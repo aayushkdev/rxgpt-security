@@ -5,6 +5,7 @@ import Particles, { initParticlesEngine } from "@tsparticles/react";
 import { loadSlim } from "@tsparticles/slim";
 import { roles } from "../lib/themeconfig";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
   faHospital,
   faUserDoctor,
@@ -16,6 +17,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/dist/client/components/navigation";
 
+
+type Role = "Admin" | "Doctor" | "Nurse" | "Patient" | "Staff";
+const ROLE_LIST: Role[] = ["Admin", "Doctor", "Nurse", "Patient", "Staff"];
 // separate component for particles; memoized so it only updates when accent changes
 const ParticleBackground = React.memo(
   ({ accent, init }: { accent: string; init: boolean }) => {
@@ -51,7 +55,7 @@ export default function Login() {
   const [init, setInit] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [roleAnimating, setRoleAnimating] = useState(false);
-  const [role, setRole] = useState("Admin");
+  const [role, setRole] = useState<Role>("Admin");
   const [securityMessage, setSecurityMessage] = useState("");
   const [show2FA, setShow2FA] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
@@ -112,25 +116,16 @@ export default function Login() {
 
   const current = dark ? roleConfig.dark : roleConfig.light;
 
-  const roleIcon = {
+  const roleIcons: Record<Role, IconDefinition> = {
     Admin: faHospital,
     Doctor: faUserDoctor,
     Nurse: faUserNurse,
     Patient: faUser,
     Staff: faUserGear,
-  }[role];
+  };
 
-  /* ---------------------------------- */
-  /* PARTICLES */
-  /* ---------------------------------- */
+  const roleIcon = roleIcons[role];
 
-  // memoized options are moved into a separate component below to avoid recreating the
-  // configuration every time the Login component rerenders (e.g. when typing).  Email and
-  // password state changes should not trigger a particle update.
-
-  /* ---------------------------------- */
-  /* RENDER */
-  /* ---------------------------------- */
 
   return (
     <div className="h-screen w-screen overflow-hidden">
@@ -232,7 +227,7 @@ export default function Login() {
 
             {/* Role Selection */}
             <div className="mb-8 grid grid-cols-3 gap-3">
-              {["Admin","Doctor","Nurse","Patient","Staff"].map((r) => (
+              {ROLE_LIST.map((r) => (
                 <button
                   key={r}
                   onClick={() => {
